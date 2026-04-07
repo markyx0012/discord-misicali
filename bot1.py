@@ -60,7 +60,7 @@ async def play_loop():
         current_index = (current_index + 1) % len(playlist)
 
 
-<@&1219705820275806220>.event
+@bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
     bot.loop.create_task(play_loop())
