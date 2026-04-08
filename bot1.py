@@ -9,8 +9,9 @@ load_dotenv()
 
 intents = discord.Intents.default()
 intents.voice_states = True
+intents.guilds = True
 
-bot = discord.Bot(intents=intents)
+bot = discord.Client(intents=intents)
 
 with open("config.json") as f:
     config = json.load(f)
@@ -40,30 +41,46 @@ async def play_loop():
     await bot.wait_until_ready()
 
     guild = bot.get_guild(guild_id)
-    channel = guild.get_channel(voice_channel_id)
+    if guild is None:
+        print("No se encontró el servidor")
+        return
 
-    voice_client = await channel.connect()
+    channel = guild.get_channel(voice_channel_id)
+    if not isinstance(channel, discord.VoiceChannel):
+        print("Canal de voz inválido")
+        return
+
+    try:
+        voice_client = await channel.connect()
+    except Exception as e:
+        print(f"Error al conectar: {e}")
+        return
 
     while True:
-        url = playlist[current_index]
+        try:
+            url = playlist[current_index]
 
-        with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info["url"]
+            with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+                info = ydl.extract_info(url, download=False)
+                audio_url = info["url"]
 
-        source = discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
-        voice_client.play(source)
+            source = discord.FFmpegPCMAudio(audio_url, **FFMPEG_OPTIONS)
+            voice_client.play(source)
 
-        while voice_client.is_playing():
-            await asyncio.sleep(1)
+            while voice_client.is_playing():
+                await asyncio.sleep(1)
 
-        current_index = (current_index + 1) % len(playlist)
+            current_index = (current_index + 1) % len(playlist)
+
+        except Exception as e:
+            print(f"Error en reproducción: {e}")
+            await asyncio.sleep(5)
 
 
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
-    bot.loop.create_task(play_loop())
+    asyncio.create_task(play_loop())
 
 
 bot.run(os.getenv("DISCORD_TOKEN"))
